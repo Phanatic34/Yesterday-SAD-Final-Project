@@ -12,7 +12,7 @@ export function FullScorePanel({ project }: { project: Project }) {
   const [exportOpen, setExportOpen] = useState<null | 'musescore' | 'pdf'>(null)
 
   const instruments = useMemo(() => {
-    const set = new Set(project.scores.map((s) => s.instrument))
+    const set = new Set(project.scores.map((s) => s.instrument).filter((i) => i !== 'full'))
     return Array.from(set)
   }, [project.scores])
 

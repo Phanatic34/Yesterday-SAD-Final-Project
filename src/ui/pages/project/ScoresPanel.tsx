@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Project, Score } from '../../../types'
+import type { Project, Score, Song } from '../../../types'
 import { useAppState } from '../../../state/AppState'
 import { Badge } from '../../primitives/Badge'
 import { Button } from '../../primitives/Button'
@@ -8,10 +8,11 @@ import { Card } from '../../primitives/Card'
 import { Modal } from '../../primitives/Modal'
 
 export function ScoresPanel({ project }: { project: Project }) {
-  const { currentUser, getUser, addToast, deleteScore } = useAppState()
-  const navigate = useNavigate()
+  const { currentUser, addToast, deleteScore, toggleSongPin } = useAppState()
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<null | Score>(null)
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
+  const [sortMode, setSortMode] = useState<'recent' | 'pinned' | 'alpha'>('recent')
 
   const canDelete = useMemo(() => {
     if (currentUser.role === 'admin') return true
@@ -19,13 +20,37 @@ export function ScoresPanel({ project }: { project: Project }) {
     return !!me?.roles.includes('owner')
   }, [currentUser, project.members])
 
+  const songs = project.songs ?? []
+  const selectedSong = useMemo(
+    () => songs.find((s) => s.id === selectedSongId) ?? null,
+    [songs, selectedSongId],
+  )
+
+  const sortedSongs = useMemo(() => {
+    const list = [...songs]
+    if (sortMode === 'alpha') {
+      list.sort((a, b) => a.title.localeCompare(b.title))
+      return list
+    }
+    if (sortMode === 'pinned') {
+      list.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+        return b.lastPracticedAt.localeCompare(a.lastPracticedAt)
+      })
+      return list
+    }
+    // recent
+    list.sort((a, b) => b.lastPracticedAt.localeCompare(a.lastPracticedAt))
+    return list
+  }, [songs, sortMode])
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <div className="text-sm font-semibold text-slate-900">Scores / Parts</div>
           <div className="mt-1 text-sm text-slate-600">
-            MuseScore is the primary format. PDF support is shown as deferred.
+            This project contains multiple songs. Each song contains multiple parts + a full score.
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -35,70 +60,55 @@ export function ScoresPanel({ project }: { project: Project }) {
         </div>
       </div>
 
-      {project.scores.length === 0 ? (
+      {songs.length === 0 ? (
         <Card className="p-6">
-          <div className="text-sm font-semibold text-slate-900">No scores yet</div>
+          <div className="text-sm font-semibold text-slate-900">No songs yet</div>
           <div className="mt-1 text-sm text-slate-600">
-            Use “Upload score” to simulate adding a MuseScore part.
+            In the real workflow, songs appear first, then parts live inside each song.
           </div>
         </Card>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {project.scores.map((s) => {
-            const editor = getUser(s.lastEditorUserId)?.name ?? s.lastEditorUserId
-            return (
-              <Card key={s.id} className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-slate-900">{s.name}</div>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      <Badge tone="info">Instrument: {s.instrument}</Badge>
-                      <Badge>Type: {s.fileType}</Badge>
-                      <Badge>Version: {s.currentVersion}</Badge>
-                    </div>
-                  </div>
-                  <Badge>Updated: {s.lastUpdatedAt}</Badge>
+        <>
+          {!selectedSong ? (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-slate-900">Song list</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-xs text-slate-500">Sort:</div>
+                  <select
+                    value={sortMode}
+                    onChange={(e) => setSortMode(e.target.value as any)}
+                    className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    <option value="recent">Recently practiced</option>
+                    <option value="pinned">Pinned first</option>
+                    <option value="alpha">Alphabetical</option>
+                  </select>
                 </div>
+              </div>
 
-                <div className="mt-2 text-xs text-slate-500">Last editor: {editor}</div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => navigate(`/projects/${project.id}/scores/${s.id}/editor`)}
-                  >
-                    Edit score
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => addToast({ title: 'Opened score (simulated)', message: s.name })}
-                  >
-                    Open score
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => navigate(`/projects/${project.id}?tab=versions`)}
-                  >
-                    View version history
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    disabled={!canDelete}
-                    onClick={() => setConfirmDelete(s)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-                {!canDelete && (
-                  <div className="mt-1 text-xs text-slate-500">Delete: owner/admin only</div>
-                )}
-              </Card>
-            )
-          })}
-        </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {sortedSongs.map((song) => (
+                  <SongCard
+                    key={song.id}
+                    song={song}
+                    currentUserId={currentUser.id}
+                    onOpen={() => setSelectedSongId(song.id)}
+                    onTogglePin={() => toggleSongPin(project.id, song.id)}
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            <SongDetail
+              project={project}
+              song={selectedSong}
+              canDelete={canDelete}
+              onBack={() => setSelectedSongId(null)}
+              onDeleteScore={(s) => setConfirmDelete(s)}
+            />
+          )}
+        </>
       )}
 
       <Modal
@@ -160,6 +170,238 @@ export function ScoresPanel({ project }: { project: Project }) {
         </div>
         <div className="mt-2 text-sm font-medium text-slate-900">{confirmDelete?.name}</div>
       </Modal>
+    </div>
+  )
+}
+
+function SongCard({
+  song,
+  currentUserId,
+  onOpen,
+  onTogglePin,
+}: {
+  song: Song
+  currentUserId: string
+  onOpen: () => void
+  onTogglePin: () => void
+}) {
+  const my = song.assignments.find((a) => a.userId === currentUserId)
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-base font-semibold text-slate-900">{song.title}</div>
+          <div className="mt-1 text-sm text-slate-600">Composer: {song.composer}</div>
+        </div>
+        <button
+          onClick={onTogglePin}
+          className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+          title={song.pinned ? 'Unpin' : 'Pin'}
+        >
+          {song.pinned ? 'Pinned' : 'Pin'}
+        </button>
+      </div>
+
+      <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="text-xs text-slate-500">Your part</div>
+          <div className="font-medium">{my?.partName ?? '—'}</div>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="text-xs text-slate-500">Your role</div>
+          <div className="font-medium">{my?.role ?? '—'}</div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {song.pinned && <Badge tone="warn">Pinned</Badge>}
+          <Badge>Last practiced: {song.lastPracticedAt}</Badge>
+        </div>
+        <Button size="sm" onClick={onOpen}>
+          Open song
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+function SongDetail({
+  project,
+  song,
+  canDelete,
+  onBack,
+  onDeleteScore,
+}: {
+  project: Project
+  song: Song
+  canDelete: boolean
+  onBack: () => void
+  onDeleteScore: (s: Score) => void
+}) {
+  const { currentUser, getUser, addToast } = useAppState()
+  const navigate = useNavigate()
+
+  const my = song.assignments.find((a) => a.userId === currentUser.id)
+  const primary =
+    my?.primaryScoreId
+      ? project.scores.find((s) => s.id === my.primaryScoreId) ?? null
+      : null
+
+  const songScores = useMemo(() => {
+    const set = new Set(song.scoreIds)
+    return project.scores.filter((s) => set.has(s.id))
+  }, [project.scores, song.scoreIds])
+
+  const otherScores = useMemo(() => {
+    const pId = primary?.id
+    return songScores.filter((s) => s.id !== pId)
+  }, [songScores, primary?.id])
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-900">Song</div>
+          <div className="mt-1 truncate text-xl font-semibold text-slate-900">{song.title}</div>
+          <div className="mt-1 text-sm text-slate-600">Composer: {song.composer}</div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={onBack}>
+            Back to song list
+          </Button>
+          <Button variant="ghost" onClick={() => addToast({ title: 'Marked as practiced (simulated)', message: song.title })}>
+            Mark practiced
+          </Button>
+        </div>
+      </div>
+
+      <Card className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold text-slate-500">Your primary part</div>
+            <div className="mt-1 text-sm text-slate-600">
+              {my ? (
+                <>
+                  Your part: <span className="font-medium text-slate-900">{my.partName}</span> · Your role:{' '}
+                  <span className="font-medium text-slate-900">{my.role}</span>
+                </>
+              ) : (
+                <>No assignment for your account in this song (prototype data).</>
+              )}
+            </div>
+          </div>
+          {primary ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => navigate(`/projects/${project.id}/scores/${primary.id}/editor`)}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => addToast({ title: 'Opened score (simulated)', message: primary.name })}
+              >
+                Open
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigate(`/projects/${project.id}?tab=versions`)}
+              >
+                View version history
+              </Button>
+            </div>
+          ) : null}
+        </div>
+
+        {primary ? (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold text-slate-900">{primary.name}</div>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <Badge tone="info">{primary.instrument === 'full' ? 'Full score' : `Instrument: ${primary.instrument}`}</Badge>
+                  <Badge>Type: {primary.fileType}</Badge>
+                  <Badge>Version: {primary.currentVersion}</Badge>
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                  Last editor: {getUser(primary.lastEditorUserId)?.name ?? primary.lastEditorUserId} · Updated: {primary.lastUpdatedAt}
+                </div>
+              </div>
+              <Badge tone="success">Pinned for quick access</Badge>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">
+            No primary score linked for this song. (Prototype data can assign a primary part via `primaryScoreId`.)
+          </div>
+        )}
+      </Card>
+
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-semibold text-slate-900">All parts & full score</div>
+        <div className="text-xs text-slate-500">{songScores.length} files</div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        {otherScores.map((s) => {
+          const editor = getUser(s.lastEditorUserId)?.name ?? s.lastEditorUserId
+          return (
+            <Card key={s.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-slate-900">{s.name}</div>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <Badge tone="info">
+                      {s.instrument === 'full' ? 'Full score' : `Instrument: ${s.instrument}`}
+                    </Badge>
+                    <Badge>Type: {s.fileType}</Badge>
+                    <Badge>Version: {s.currentVersion}</Badge>
+                  </div>
+                </div>
+                <Badge>Updated: {s.lastUpdatedAt}</Badge>
+              </div>
+
+              <div className="mt-2 text-xs text-slate-500">Last editor: {editor}</div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => navigate(`/projects/${project.id}/scores/${s.id}/editor`)}
+                >
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => addToast({ title: 'Opened score (simulated)', message: s.name })}
+                >
+                  Open
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => navigate(`/projects/${project.id}?tab=versions`)}
+                >
+                  View history
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={!canDelete}
+                  onClick={() => onDeleteScore(s)}
+                >
+                  Delete
+                </Button>
+              </div>
+              {!canDelete && (
+                <div className="mt-1 text-xs text-slate-500">Delete: owner/admin only</div>
+              )}
+            </Card>
+          )
+        })}
+      </div>
     </div>
   )
 }

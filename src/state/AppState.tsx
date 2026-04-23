@@ -30,6 +30,7 @@ type AppState = {
   createBranch: (projectId: string, name: string) => void
   switchBranch: (projectId: string, name: string) => void
   mergeBranch: (projectId: string, from: string, into: string) => void
+  toggleSongPin: (projectId: string, songId: string) => void
 
   deleteProject: (projectId: string) => void
   deleteUser: (userId: string) => void
@@ -169,6 +170,21 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
               commits: [mergeCommit, ...p.commits],
               currentCommitId: mergeCommit.id,
               lastUpdatedAt: now,
+            }
+          }),
+        )
+      },
+
+      toggleSongPin: (projectId, songId) => {
+        setProjects((prev) =>
+          prev.map((p) => {
+            if (p.id !== projectId) return p
+            if (!p.songs) return p
+            return {
+              ...p,
+              songs: p.songs.map((s) =>
+                s.id === songId ? { ...s, pinned: !s.pinned } : s,
+              ),
             }
           }),
         )

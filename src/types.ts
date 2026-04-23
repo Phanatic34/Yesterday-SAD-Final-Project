@@ -8,6 +8,7 @@ export type Instrument =
   | 'clarinet'
   | 'trumpet'
   | 'piano'
+  | 'full'
 
 export type ProjectRole =
   | 'owner'
@@ -43,6 +44,29 @@ export type Score = {
   lastUpdatedAt: string
 }
 
+export type SongRole = 'principal' | 'member' | 'conductor' | 'section leader'
+
+export type SongAssignment = {
+  userId: string
+  role: SongRole
+  partName: string
+  /** References a score in the parent project's `scores` array. */
+  primaryScoreId?: string
+}
+
+export type Song = {
+  id: string
+  title: string
+  composer: string
+  pinned: boolean
+  lastPracticedAt: string
+  /** References score ids in the parent project's `scores` array. */
+  scoreIds: string[]
+  /** References the "full score" score id for this song, if present. */
+  fullScoreId?: string
+  assignments: SongAssignment[]
+}
+
 export type Commit = {
   id: string
   projectId: string
@@ -60,6 +84,7 @@ export type Project = {
   ensembleType: string
   members: ProjectMember[]
   scores: Score[]
+  songs?: Song[]
   branches: string[]
   currentBranch: string
   currentCommitId: string
