@@ -20,10 +20,6 @@ export function HomePage() {
           <div className="text-2xl font-semibold tracking-tight text-slate-900">
             Yesterday
           </div>
-          <div className="mt-2 text-xs text-slate-500">
-            Prototype focus: page structure, navigation flow, mock Git-like version history, and
-            role-based permissions. No real backend.
-          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => navigate('/projects')}>View projects</Button>
@@ -42,19 +38,6 @@ export function HomePage() {
           </Button>
         </div>
       </div>
-
-      <Card className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-slate-900">Quick demo path</div>
-            <div className="mt-1 text-sm text-slate-600">
-              Projects → Project detail → Scores → Score editor → Commit → Version history → Branches →
-              Full score preview
-            </div>
-          </div>
-          <Badge tone="info">UI Flow: 1.0 → 1.a → 1.1 → 1.1.1 → 1.1.1.1</Badge>
-        </div>
-      </Card>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">

@@ -24,22 +24,22 @@ export function Sidebar() {
         </div>
 
         <nav className="flex flex-col gap-1">
-          <SideLink to="/" icon={<Home className="size-4" />} label="Home (1.0)" />
+          <SideLink to="/" icon={<Home className="size-4" />} label="Home" />
           <SideLink
             to="/projects"
             icon={<FolderKanban className="size-4" />}
-            label="Projects (1.a)"
+            label="Projects"
           />
-          <SideLink to="/login" icon={<LogIn className="size-4" />} label="Login (1.2)" />
+          <SideLink to="/login" icon={<LogIn className="size-4" />} label="Login" />
           <SideLink
             to={`/users/${currentUser.id}`}
             icon={<User className="size-4" />}
-            label="Profile (3.0)"
+            label="Profile"
           />
           <SideLink
             to="/admin"
             icon={<Shield className="size-4" />}
-            label="Admin (2.0)"
+            label="Admin"
             disabled={currentUser.role !== 'admin'}
           />
         </nav>
