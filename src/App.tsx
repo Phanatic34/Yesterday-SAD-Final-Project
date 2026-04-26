@@ -7,6 +7,7 @@ import { LoginPage } from './ui/pages/LoginPage'
 import { ProjectDetailPage } from './ui/pages/ProjectDetailPage'
 import { ProjectsPage } from './ui/pages/ProjectsPage'
 import { ScoreEditorPage } from './ui/pages/ScoreEditorPage'
+import { ScorePdfViewPage } from './ui/pages/ScorePdfViewPage'
 import { UserProfilePage } from './ui/pages/UserProfilePage'
 
 export default function App() {
@@ -22,6 +23,10 @@ export default function App() {
             <Route
               path="projects/:projectId/scores/:scoreId/editor"
               element={<ScoreEditorPage />}
+            />
+            <Route
+              path="projects/:projectId/songs/:songId/pdf"
+              element={<ScorePdfViewPage />}
             />
             <Route path="users/:userId" element={<UserProfilePage />} />
             <Route path="admin" element={<AdminDashboardPage />} />

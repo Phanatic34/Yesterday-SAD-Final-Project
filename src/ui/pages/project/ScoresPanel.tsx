@@ -242,6 +242,7 @@ function SongDetail({
 }) {
   const { currentUser, getUser, addToast } = useAppState()
   const navigate = useNavigate()
+  const isDvorakSymphony = project.id === 'p-spring' && song.id === 'song-dvorak-9'
 
   const my = song.assignments.find((a) => a.userId === currentUser.id)
   const primary =
@@ -295,13 +296,21 @@ function SongDetail({
           {primary ? (
             <div className="flex flex-wrap gap-2">
               <Button
-                onClick={() => navigate(`/projects/${project.id}/scores/${primary.id}/editor`)}
+                onClick={() =>
+                  isDvorakSymphony
+                    ? navigate(`/projects/${project.id}/songs/${song.id}/pdf`)
+                    : navigate(`/projects/${project.id}/scores/${primary.id}/editor`)
+                }
               >
                 Edit
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => addToast({ title: 'Opened score (simulated)', message: primary.name })}
+                onClick={() =>
+                  isDvorakSymphony
+                    ? navigate(`/projects/${project.id}/songs/${song.id}/pdf`)
+                    : addToast({ title: 'Opened score (simulated)', message: primary.name })
+                }
               >
                 Open
               </Button>
@@ -368,14 +377,22 @@ function SongDetail({
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  onClick={() => navigate(`/projects/${project.id}/scores/${s.id}/editor`)}
+                  onClick={() =>
+                    isDvorakSymphony
+                      ? navigate(`/projects/${project.id}/songs/${song.id}/pdf?scoreId=${s.id}`)
+                      : navigate(`/projects/${project.id}/scores/${s.id}/editor`)
+                  }
                 >
                   Edit
                 </Button>
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => addToast({ title: 'Opened score (simulated)', message: s.name })}
+                  onClick={() =>
+                    isDvorakSymphony
+                      ? navigate(`/projects/${project.id}/songs/${song.id}/pdf?scoreId=${s.id}`)
+                      : addToast({ title: 'Opened score (simulated)', message: s.name })
+                  }
                 >
                   Open
                 </Button>
