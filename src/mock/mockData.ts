@@ -102,7 +102,7 @@ export const mockProjects: Project[] = [
         projectId: 'p-spring',
         name: 'Symphony No.9, Op.95 — Violin II Part',
         instrument: 'violin',
-        fileType: 'pdf (deferred)',
+        fileType: 'musicxml',
         currentVersion: 'v1.0',
         lastEditorUserId: 'u-guest1',
         lastUpdatedAt: '2026-04-21 21:08',
@@ -112,7 +112,7 @@ export const mockProjects: Project[] = [
         projectId: 'p-spring',
         name: 'Symphony No.9, Op.95 — Violin I Part',
         instrument: 'violin',
-        fileType: 'pdf (deferred)',
+        fileType: 'musicxml',
         currentVersion: 'v1.0',
         lastEditorUserId: 'u-guest1',
         lastUpdatedAt: '2026-04-20 18:11',
@@ -141,7 +141,7 @@ export const mockProjects: Project[] = [
         projectId: 'p-spring',
         name: 'Symphony No.9, Op.95 — Full Score',
         instrument: 'full',
-        fileType: 'pdf (deferred)',
+        fileType: 'musicxml',
         currentVersion: 'v1.0',
         lastEditorUserId: 'u-owner',
         lastUpdatedAt: '2026-04-19 14:05',
@@ -409,4 +409,3 @@ export const mockProjects: Project[] = [
     lastUpdatedAt: '2026-04-17 18:05',
   },
 ]
-

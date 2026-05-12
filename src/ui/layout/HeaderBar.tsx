@@ -3,6 +3,7 @@ import { useAppState } from '../../state/AppState'
 import { Avatar } from '../primitives/Avatar'
 import { Button } from '../primitives/Button'
 import { Badge } from '../primitives/Badge'
+import type { UserRole } from '../../types'
 
 export function HeaderBar() {
   const { currentUser, switchUser } = useAppState()
@@ -23,7 +24,7 @@ export function HeaderBar() {
             <select
               value={currentUser.role}
               onChange={(e) => {
-                switchUser(e.target.value as any)
+                switchUser(e.target.value as UserRole)
                 navigate('/')
               }}
               className="h-8 rounded-md border border-slate-200 bg-white px-2 text-sm"
@@ -57,4 +58,3 @@ export function HeaderBar() {
     </header>
   )
 }
-

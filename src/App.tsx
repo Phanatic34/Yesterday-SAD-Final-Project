@@ -7,7 +7,7 @@ import { LoginPage } from './ui/pages/LoginPage'
 import { ProjectDetailPage } from './ui/pages/ProjectDetailPage'
 import { ProjectsPage } from './ui/pages/ProjectsPage'
 import { ScoreEditorPage } from './ui/pages/ScoreEditorPage'
-import { ScorePdfViewPage } from './ui/pages/ScorePdfViewPage'
+import { ScoreMusicXmlPage } from './ui/pages/ScoreMusicXmlPage'
 import { UserProfilePage } from './ui/pages/UserProfilePage'
 
 export default function App() {
@@ -25,8 +25,12 @@ export default function App() {
               element={<ScoreEditorPage />}
             />
             <Route
+              path="projects/:projectId/songs/:songId/musicxml"
+              element={<ScoreMusicXmlPage />}
+            />
+            <Route
               path="projects/:projectId/songs/:songId/pdf"
-              element={<ScorePdfViewPage />}
+              element={<ScoreMusicXmlPage />}
             />
             <Route path="users/:userId" element={<UserProfilePage />} />
             <Route path="admin" element={<AdminDashboardPage />} />

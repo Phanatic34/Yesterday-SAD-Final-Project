@@ -226,9 +226,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAppState() {
   const v = useContext(Ctx)
   if (!v) throw new Error('useAppState must be used within AppStateProvider')
   return v
 }
-

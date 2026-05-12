@@ -20,7 +20,7 @@ export function ScoresPanel({ project }: { project: Project }) {
     return !!me?.roles.includes('owner')
   }, [currentUser, project.members])
 
-  const songs = project.songs ?? []
+  const songs = useMemo(() => project.songs ?? [], [project.songs])
   const selectedSong = useMemo(
     () => songs.find((s) => s.id === selectedSongId) ?? null,
     [songs, selectedSongId],
@@ -77,7 +77,7 @@ export function ScoresPanel({ project }: { project: Project }) {
                   <div className="text-xs text-slate-500">Sort:</div>
                   <select
                     value={sortMode}
-                    onChange={(e) => setSortMode(e.target.value as any)}
+                    onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
                     className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
                   >
                     <option value="recent">Recently practiced</option>
@@ -137,8 +137,8 @@ export function ScoresPanel({ project }: { project: Project }) {
         <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
           <div className="font-medium text-slate-900">Supported (prototype UI)</div>
           <ul className="mt-1 list-disc pl-5 text-slate-600">
-            <li>MuseScore (.mscz) — primary</li>
-            <li>PDF — temporarily deferred</li>
+            <li>MusicXML (.musicxml / .xml) — rendered in-browser</li>
+            <li>MuseScore (.mscz) — planned via conversion to MusicXML</li>
           </ul>
         </div>
       </Modal>
@@ -298,7 +298,7 @@ function SongDetail({
               <Button
                 onClick={() =>
                   isDvorakSymphony
-                    ? navigate(`/projects/${project.id}/songs/${song.id}/pdf`)
+                    ? navigate(`/projects/${project.id}/songs/${song.id}/musicxml`)
                     : navigate(`/projects/${project.id}/scores/${primary.id}/editor`)
                 }
               >
@@ -308,7 +308,7 @@ function SongDetail({
                 variant="secondary"
                 onClick={() =>
                   isDvorakSymphony
-                    ? navigate(`/projects/${project.id}/songs/${song.id}/pdf`)
+                    ? navigate(`/projects/${project.id}/songs/${song.id}/musicxml`)
                     : addToast({ title: 'Opened score (simulated)', message: primary.name })
                 }
               >
@@ -379,7 +379,7 @@ function SongDetail({
                   size="sm"
                   onClick={() =>
                     isDvorakSymphony
-                      ? navigate(`/projects/${project.id}/songs/${song.id}/pdf?scoreId=${s.id}`)
+                      ? navigate(`/projects/${project.id}/songs/${song.id}/musicxml?scoreId=${s.id}`)
                       : navigate(`/projects/${project.id}/scores/${s.id}/editor`)
                   }
                 >
@@ -390,7 +390,7 @@ function SongDetail({
                   variant="secondary"
                   onClick={() =>
                     isDvorakSymphony
-                      ? navigate(`/projects/${project.id}/songs/${song.id}/pdf?scoreId=${s.id}`)
+                      ? navigate(`/projects/${project.id}/songs/${song.id}/musicxml?scoreId=${s.id}`)
                       : addToast({ title: 'Opened score (simulated)', message: s.name })
                   }
                 >
@@ -422,4 +422,3 @@ function SongDetail({
     </div>
   )
 }
-

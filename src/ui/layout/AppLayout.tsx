@@ -6,7 +6,7 @@ import { ToastStack } from './ToastStack'
 export function AppLayout() {
   const location = useLocation()
 
-  const isEditor = /\/editor$/.test(location.pathname)
+  const isEditor = /\/(editor|musicxml|pdf)$/.test(location.pathname)
 
   return (
     <div className="min-h-dvh bg-slate-50 text-slate-900">
@@ -23,4 +23,3 @@ export function AppLayout() {
     </div>
   )
 }
-

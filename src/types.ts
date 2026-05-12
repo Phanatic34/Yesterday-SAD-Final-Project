@@ -17,7 +17,7 @@ export type ProjectRole =
   | 'performer'
   | 'editor'
 
-export type FileType = 'musescore' | 'pdf (deferred)'
+export type FileType = 'musicxml' | 'musescore' | 'pdf (deferred)'
 
 export type User = {
   id: string
@@ -91,4 +91,3 @@ export type Project = {
   commits: Commit[]
   lastUpdatedAt: string
 }
-
