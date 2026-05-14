@@ -789,14 +789,12 @@ export function ScoreMusicXmlPage() {
               <div className="truncate text-sm font-semibold text-slate-950">
                 {xmlEntry.title}
               </div>
-              <Badge tone="info">MusicXML</Badge>
-              <Badge>{score?.instrument === 'full' ? 'Full score' : score?.instrument}</Badge>
               <Badge tone={isModified ? 'warn' : 'neutral'}>
-                {isModified ? 'Edited in memory' : 'Original'}
+                {isModified ? `${history.past.length} edits` : 'Original'}
               </Badge>
             </div>
             <div className="mt-1 text-xs text-slate-500">
-              {xmlEntry.composer} · Branch: {project.currentBranch}
+              {score?.instrument === 'full' ? 'Full score' : score?.instrument} · {xmlEntry.composer}
             </div>
           </div>
 
@@ -815,9 +813,9 @@ export function ScoreMusicXmlPage() {
             </select>
             <Button variant="secondary" onClick={exportWorkingXml} disabled={!workingXml}>
               <Download className="size-4" />
-              XML
+              Export
             </Button>
-            <Button onClick={() => setSummaryOpen(true)}>
+            <Button variant="secondary" onClick={() => setSummaryOpen(true)}>
               <Save className="size-4" />
               Summary
             </Button>
@@ -849,9 +847,6 @@ export function ScoreMusicXmlPage() {
           <Divider />
 
           <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1 shadow-inner">
-            <span className="hidden px-2 text-[11px] font-semibold uppercase text-slate-500 md:inline">
-              Dynamics
-            </span>
             {DYNAMICS.map((mark) => (
               <SymbolButton
                 key={mark}
@@ -867,9 +862,6 @@ export function ScoreMusicXmlPage() {
           </div>
 
           <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1 shadow-inner">
-            <span className="hidden px-2 text-[11px] font-semibold uppercase text-slate-500 md:inline">
-              Mark
-            </span>
             <SymbolButton
               title="Apply down-bow"
               disabled={!selectedNote}
@@ -925,41 +917,44 @@ export function ScoreMusicXmlPage() {
             <RotateCcw className="size-4" />
           </IconButton>
 
-          <div className="ml-auto flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5">
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
-              <input
-                type="checkbox"
-                checked={showMeasureNumbers}
-                onChange={(event) => setShowMeasureNumbers(event.target.checked)}
-              />
-              Measures
-            </label>
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
-              <input
-                type="checkbox"
-                checked={showPartNames}
-                onChange={(event) => setShowPartNames(event.target.checked)}
-              />
-              Parts
-            </label>
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
-              <input
-                type="checkbox"
-                checked={compactLayout}
-                onChange={(event) => setCompactLayout(event.target.checked)}
-              />
-              Compact
-            </label>
-          </div>
+          <details className="ml-auto rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
+            <summary className="cursor-pointer font-medium text-slate-700">View</summary>
+            <div className="mt-2 flex flex-wrap gap-3">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showMeasureNumbers}
+                  onChange={(event) => setShowMeasureNumbers(event.target.checked)}
+                />
+                Measures
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showPartNames}
+                  onChange={(event) => setShowPartNames(event.target.checked)}
+                />
+                Parts
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={compactLayout}
+                  onChange={(event) => setCompactLayout(event.target.checked)}
+                />
+                Compact
+              </label>
+            </div>
+          </details>
         </div>
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white p-4 lg:block">
-          <div className="text-sm font-semibold text-slate-950">Inspector</div>
+        <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white p-4 lg:block">
+          <div className="text-sm font-semibold text-slate-950">Selection</div>
           <div className="mt-3 grid gap-3">
             <div>
-              <div className="text-xs font-medium text-slate-500">Selected note</div>
+              <div className="text-xs font-medium text-slate-500">Note</div>
               <div className="mt-1 text-sm font-medium text-slate-900">
                 {noteLabel(selectedNote)}
               </div>
@@ -970,24 +965,22 @@ export function ScoreMusicXmlPage() {
                 {mode === 'slur' ? 'Slur endpoint selection' : mode}
               </div>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div className="text-xs font-medium text-slate-500">Slur draft</div>
-              <div className="mt-1 text-sm text-slate-700">
-                {slurDraft ? `Start: ${noteLabel(slurDraft.start)}` : 'No active slur'}
+            {slurDraft && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="text-xs font-medium text-slate-500">Slur start</div>
+                <div className="mt-1 text-sm text-slate-700">
+                  {noteLabel(slurDraft.start)}
+                </div>
               </div>
-            </div>
+            )}
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div className="text-xs font-medium text-slate-500">Working XML</div>
+              <div className="text-xs font-medium text-slate-500">Changes</div>
               <div className="mt-1 flex flex-wrap gap-2">
                 <Badge tone={isModified ? 'warn' : 'neutral'}>
                   {history.past.length} edits
                 </Badge>
-                <Badge>Undo: {history.past.length}</Badge>
-                <Badge>Redo: {history.future.length}</Badge>
+                {!!history.future.length && <Badge>Redo: {history.future.length}</Badge>}
               </div>
-            </div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-              This prototype edits MusicXML in browser memory only. No score file is saved yet.
             </div>
           </div>
         </aside>

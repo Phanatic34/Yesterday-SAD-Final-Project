@@ -25,9 +25,7 @@ export function ProjectsPage() {
       <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <div className="text-xl font-semibold text-slate-950">Projects</div>
-          <div className="mt-1 text-sm text-slate-600">
-            Showing projects you participate in{currentUser.role === 'admin' ? ' (admin sees all).' : '.'}
-          </div>
+          <div className="mt-1 text-sm text-slate-600">{visible.length} workspaces</div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => setCreateOpen(true)}>
@@ -63,34 +61,23 @@ export function ProjectsPage() {
                     </div>
                   </div>
                   <div className="mt-1 line-clamp-2 text-sm text-slate-600">{p.description}</div>
+                  <div className="mt-3 text-xs text-slate-500">
+                    {myRole} · {myInstruments} · {p.scores.length} scores
+                  </div>
                 </div>
-                <Badge>Members: {p.members.length}</Badge>
-              </div>
-
-              <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-xs text-slate-500">Your role</div>
-                  <div className="font-medium">{myRole}</div>
-                </div>
-                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-xs text-slate-500">Your instrument(s)</div>
-                  <div className="font-medium">{myInstruments}</div>
-                </div>
-                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-xs text-slate-500">Current branch</div>
-                  <div className="font-medium">{p.currentBranch}</div>
-                </div>
-                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="text-xs text-slate-500">Last updated</div>
-                  <div className="font-medium">{p.lastUpdatedAt}</div>
-                </div>
+                <Badge>{p.members.length} members</Badge>
               </div>
 
               {lastCommit && (
-                <div className="mt-3 text-xs text-slate-500">
-                  Latest commit: <span className="font-medium text-slate-700">{lastCommit.message}</span>
-                  {lastAuthor ? ` — ${lastAuthor}` : ''} ({lastCommit.timestamp})
-                </div>
+                <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  <summary className="cursor-pointer font-medium text-slate-700">
+                    Latest update
+                  </summary>
+                  <div className="mt-2">
+                    <span className="font-medium text-slate-800">{lastCommit.message}</span>
+                    {lastAuthor ? ` — ${lastAuthor}` : ''} · {lastCommit.timestamp} · {p.currentBranch}
+                  </div>
+                </details>
               )}
 
               <div className="mt-4 flex flex-wrap gap-2">

@@ -32,7 +32,6 @@ export function ProjectDetailPage() {
   const myRole = myMember?.roles.join(', ') ?? (currentUser.role === 'admin' ? 'admin' : 'viewer')
   const myInstruments = myMember?.instruments.join(', ') ?? '—'
   const currentCommit = project?.commits.find((c) => c.id === project?.currentCommitId)
-  const commitAuthor = currentCommit ? getUser(currentCommit.authorUserId)?.name : undefined
 
   if (!project) {
     return (
@@ -54,25 +53,16 @@ export function ProjectDetailPage() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <div className="truncate text-xl font-semibold text-slate-950">{project.name}</div>
-            <Badge>Ensemble: {project.ensembleType}</Badge>
             <Badge tone="info">
               <GitBranch className="mr-1 size-3" />
               {project.currentBranch}
             </Badge>
           </div>
           <div className="mt-1 text-sm text-slate-600">{project.description}</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Badge>Your role: {myRole}</Badge>
-            <Badge>Your instrument(s): {myInstruments}</Badge>
-            <Badge>Members: {project.members.length}</Badge>
-            <Badge>Scores: {project.scores.length}</Badge>
+          <div className="mt-2 text-xs text-slate-500">
+            {project.ensembleType} · {project.members.length} members · {project.scores.length} scores · {myRole}
+            {myInstruments !== '—' ? ` · ${myInstruments}` : ''}
           </div>
-          {currentCommit && (
-            <div className="mt-2 text-xs text-slate-500">
-              Current commit: <span className="font-medium text-slate-700">{currentCommit.message}</span>
-              {commitAuthor ? ` — ${commitAuthor}` : ''} ({currentCommit.timestamp})
-            </div>
-          )}
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -93,29 +83,31 @@ export function ProjectDetailPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="p-4 lg:col-span-2">
             <div className="text-sm font-semibold text-slate-950">Overview</div>
-            <div className="mt-1 text-sm text-slate-600">
-              Project workspace for parts, members, branches, and MusicXML revisions.
-            </div>
+            {currentCommit && (
+              <div className="mt-1 text-sm text-slate-600">
+                Latest: {currentCommit.message}
+              </div>
+            )}
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <QuickLink
                 title="Scores"
-                desc="Open parts, edit (mock), and view version history."
+                desc="Open parts and MusicXML editing."
                 to={`?tab=scores`}
               />
               <QuickLink
                 title="Members"
-                desc="View members; owner can assign roles/instruments (mock)."
+                desc="Roles and instruments."
                 to={`?tab=members`}
               />
               <QuickLink
-                title="Branches / Versions"
-                desc="Create/switch branches, visualize graph, and manage commits (mock)."
+                title="Branches"
+                desc="Switch and merge versions."
                 to={`?tab=branches`}
               />
               <QuickLink
-                title="Full score preview"
-                desc="Simulate combining parts into a full score."
+                title="Full score"
+                desc="Preview combined parts."
                 to={`?tab=fullscore`}
               />
             </div>
@@ -124,11 +116,11 @@ export function ProjectDetailPage() {
           <Card className="p-4">
             <div className="text-sm font-semibold text-slate-950">Recent commits</div>
             <div className="mt-3 space-y-2">
-              {project.commits.slice(0, 5).map((c) => (
-                <div key={c.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              {project.commits.slice(0, 3).map((c) => (
+                <div key={c.id} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                   <div className="text-sm font-medium text-slate-950">{c.message}</div>
                   <div className="mt-1 text-xs text-slate-500">
-                    {getUser(c.authorUserId)?.name ?? c.authorUserId} · {c.timestamp} · {c.branch}
+                    {getUser(c.authorUserId)?.name ?? c.authorUserId} · {c.branch}
                   </div>
                 </div>
               ))}
