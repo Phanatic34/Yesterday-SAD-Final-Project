@@ -617,6 +617,86 @@ Response 同 `POST /commits` 的回傳格式。
 
 ---
 
+## 三之三、總譜匯出 API（full score）
+
+對應 `functional map.mmd` 的「總譜合成與輸出」。把某個 piece 底下各聲部的樂譜
+**即時合併**成一份多部（multi-part）`score-partwise` MusicXML，供指揮檢視與匯出。
+**即時產生、不寫資料庫**（沒有新增任何 `scores` 列）。
+
+### `GET /projects/:projectId/pieces/:pieceId/full-score`
+
+用途：取得指定 piece 的合併總譜（含跨聲部相似提示）。前端以
+OpenSheetMusicDisplay 渲染、把相似段落標色，並可下載 MusicXML。
+
+Header：
+
+```http
+Authorization: Bearer <token>
+```
+
+權限規則：
+
+- 必須是該專案成員，否則 `403`；`platform_admin` 例外。
+- 合併範圍為「目前角色可見、且有 inline `xml_content`」的聲部樂譜，並依
+  `sections.sort_order` 排序成總譜中各 part 的順序。
+
+行為：
+
+- 逐份解析各聲部的單一 `score-partwise`，重新編號 part id（`P1`、`P2`…，連同
+  `score-instrument` 等 id 一併重映），把 `part-name` 改成聲部名稱，合併到同一個
+  `part-list` 之下。
+- 無法解析的樂譜會被略過；完全沒有可合併的 part 時回 `422`。
+- 相似提示沿用跨聲部相似段落偵測（`melodySimilarityService.scanPieceSimilarPassages`）；
+  偵測失敗時 `highlights` 會降級為空陣列，不影響總譜本身。
+
+可能錯誤：
+
+- `404`：piece 不屬於此專案，或該 piece 沒有任何可見的 inline MusicXML 樂譜。
+- `422`：找到樂譜但沒有可合併的 MusicXML part。
+
+Response `data`：
+
+```json
+{
+  "pieceId": "uuid",
+  "pieceTitle": "Symphony No. 5",
+  "composer": "Beethoven",
+  "xml": "<?xml ...><score-partwise>...（合併後的多部總譜）...</score-partwise>",
+  "parts": [
+    {
+      "scoreId": "uuid",
+      "sectionId": "uuid",
+      "sectionName": "First Violin",
+      "sectionCode": "first_violin",
+      "partId": "P1",
+      "partIndex": 0
+    }
+  ],
+  "highlights": [
+    {
+      "leftScoreId": "uuid",
+      "leftSectionName": "First Violin",
+      "leftStartMeasureNumber": 12,
+      "leftEndMeasureNumber": 14,
+      "rightScoreId": "uuid",
+      "rightSectionName": "Cello",
+      "rightStartMeasureNumber": 12,
+      "rightEndMeasureNumber": 14,
+      "similarity": 0.91,
+      "noteCount": 12
+    }
+  ]
+}
+```
+
+> `parts[].partIndex` 是該聲部在合併總譜中的 part 順序；前端用它把
+> `highlights` 的 `scoreId` 對回某個 part，於相同小節標色，提醒指揮在這些段落
+> 確認各樂器上下弓一致。`highlights` 的完整欄位與相似段落掃描（含
+> `leftSectionId`、`leftStartRef`、`intervalScore`、`rhythmScore` 等）一致，此處
+> 僅示意常用欄位。
+
+---
+
 ## 四、目前 scores 欄位（前端常用）
 
 前端展示或開啟檔案時，請使用以下欄位：

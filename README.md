@@ -52,7 +52,7 @@ Yesterday 想解決的痛點：
 - **註記編輯器**：在瀏覽器內以 OpenSheetMusicDisplay 渲染樂譜，提供畫筆（上下弓符號等）、滴管、復原/重做、縮放等工具。
 - **自動帶入與警示**：相同段落自動帶入註記、衝突時顯示警示。
 - **歷史紀錄（類 Git）**：歷代版本、版本比較、版本切換、分支與合併（合併權限保留給群主／指揮）。
-- **總譜合成與輸出**：根據各聲部的版本合成總譜，支援匯出 MusicXML 與 PDF。
+- **總譜合成與輸出**：後端即時把同一首曲目的各聲部分譜合併成一份多部總譜，前端以 OpenSheetMusicDisplay 渲染（指揮檢視），並把跨樂器「相同小節」的相似段落標色提示以利對齊弓法；可匯出 MusicXML（PDF 規劃中）。
 - **管理員後台**：平台管理員可檢視所有專案、刪除專案、新增管理員帳號。
 
 ---
@@ -381,9 +381,9 @@ GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 3. **上傳樂譜**：選擇 MusicXML 檔案上傳到對應聲部（PDF 暫緩）。
 4. **編輯與註記**：進入 Score Editor，使用畫筆/滴管工具標註上下弓符號等記號。系統會在相同段落自動帶入註記，並對不一致處顯示警示。
 5. **版本與分支**：可建立分支、比較版本、切換版本；分支合併權限保留給群主。
-6. **總譜合成與輸出**：在 Full Score 面板選擇要套用的各聲部版本，預覽後匯出 MusicXML 或 PDF。
+6. **總譜合成與輸出**：在「總譜預覽」面板選擇曲目並按「產生總譜」，後端會即時把該曲目所有可見聲部合併成一份多部總譜並回傳；前端以 OSMD 渲染，把跨樂器相似段落（相同小節）標色並於側欄列出，提醒指揮確認上下弓一致，最後可匯出 MusicXML（PDF 規劃中）。
 
-> 詳細的編輯器互動、衝突偵測 UI 仍在開發中。後端目前已完成認證、專案、邀請、樂譜列表/讀取與**上傳**（`POST /api/projects/:projectId/scores`，會自動依專案內 piece 標題 find-or-create），以及對應 functional map「歷史紀錄_用git_」的分支／commit／比較／合併 API（合併權限限定 concertmaster）。實際的 score 編輯（畫筆 / 註記）類 API 仍然只預留 `canEditScoreMiddleware`，尚未掛上路由 —— 註記內容會以 commit + score_versions 的方式被快照保存。
+> 詳細的編輯器互動、衝突偵測 UI 仍在持續打磨。後端目前已完成認證、專案、邀請、樂譜列表/讀取與**上傳**（`POST /api/projects/:projectId/scores`，會自動依專案內 piece 標題 find-or-create）、樂譜 MusicXML 儲存（`PATCH /api/scores/:scoreId/musicxml`）與註記 API、跨聲部**相似段落偵測**與**弓法同步建議**、**總譜合成匯出**（`GET /api/projects/:projectId/pieces/:pieceId/full-score`，即時合併各聲部為多部總譜並附跨樂器相似提示），以及對應 functional map「歷史紀錄_用git_」的分支／commit／比較／合併 API（合併權限限定 concertmaster）。
 
 ---
 
@@ -406,6 +406,7 @@ GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 | `GET` | `/api/projects/:projectId/scores` | 列出專案中可見的樂譜 |
 | `POST` | `/api/projects/:projectId/scores` | 上傳樂譜（body `{ sectionId, title, piece, xmlContent }`；principal 限自己聲部） |
 | `GET` | `/api/scores/:scoreId` | 取得單一樂譜 metadata |
+| `GET` | `/api/projects/:projectId/pieces/:pieceId/full-score` | 即時合成多部總譜（MusicXML）+ 跨聲部相似提示（指揮用） |
 | `GET` | `/api/projects/:projectId/branches` | 列出分支 |
 | `POST` | `/api/projects/:projectId/branches` | 建立分支（body `{ name, fromCommitId? }`） |
 | `GET` | `/api/projects/:projectId/branches/:branchId` | 取得分支 |
@@ -494,4 +495,4 @@ Vite 專案天然搭配 Vitest，但目前 `package.json` 還沒安裝 `vitest`�
 
 ---
 
-歡迎開 issue 或 PR。專案仍在迭代中，部分功能（編輯器同步、衝突偵測、分支合併、PDF 匯出）為規劃中或開發中，實作進度以 `functional map.mmd` 為準。
+歡迎開 issue 或 PR。專案仍在迭代中，部分功能（編輯器同步細節、衝突偵測 UI、總譜 PDF 匯出）為規劃中或開發中，實作進度以 `functional map.mmd` 為準。
