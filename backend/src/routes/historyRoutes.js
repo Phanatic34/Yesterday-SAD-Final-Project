@@ -23,7 +23,9 @@ router.post("/:projectId/branches/:branchId/commits", historyController.createCo
 router.get("/:projectId/commits/compare", historyController.compareCommits);
 router.get("/:projectId/commits/:commitId", historyController.getCommit);
 
-// Merge
+// Merge. /merges/preview (GET, read-only conflict check) is declared before the
+// POST so the literal segment is unambiguous.
+router.get("/:projectId/merges/preview", historyController.previewMerge);
 router.post("/:projectId/merges", historyController.mergeBranches);
 
 module.exports = router;

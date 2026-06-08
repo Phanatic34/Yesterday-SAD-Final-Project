@@ -549,11 +549,180 @@ const compareCommits = async (projectId, fromCommitId, toCommitId, membership) =
 };
 
 // ---------------------------------------------------------------------------
+// Merge base + conflict detection (3-way)
+// ---------------------------------------------------------------------------
+
+const fetchCommitRow = async (commitId) => {
+  if (!commitId) return null;
+  const { data, error } = await supabase
+    .from("commits")
+    .select(COMMIT_COLUMNS)
+    .eq("id", commitId)
+    .maybeSingle();
+  if (error) {
+    throw new AppError("Failed to walk commit history", 500, error);
+  }
+  return data || null;
+};
+
+// Collect every ancestor commit id reachable from `headCommitId` by following
+// both parent_commit_id and merge_parent_commit_id (the merge commit's two
+// parents). The head itself is included.
+const collectAncestors = async (headCommitId) => {
+  const seen = new Set();
+  const stack = headCommitId ? [headCommitId] : [];
+  while (stack.length > 0) {
+    const id = stack.pop();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const commit = await fetchCommitRow(id);
+    if (!commit) continue;
+    if (commit.parent_commit_id) stack.push(commit.parent_commit_id);
+    if (commit.merge_parent_commit_id) stack.push(commit.merge_parent_commit_id);
+  }
+  return seen;
+};
+
+// Nearest common ancestor of two heads (the merge base). Returns its commit id
+// or null when the two histories share no ancestor (unrelated roots).
+const findMergeBaseId = async (fromHeadId, intoHeadId) => {
+  if (!fromHeadId || !intoHeadId) return null;
+  const intoAncestors = await collectAncestors(intoHeadId);
+  // Breadth-first from the source head so the FIRST hit is the nearest base.
+  const seen = new Set();
+  const queue = [fromHeadId];
+  while (queue.length > 0) {
+    const id = queue.shift();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    if (intoAncestors.has(id)) return id;
+    const commit = await fetchCommitRow(id);
+    if (!commit) continue;
+    if (commit.parent_commit_id) queue.push(commit.parent_commit_id);
+    if (commit.merge_parent_commit_id) queue.push(commit.merge_parent_commit_id);
+  }
+  return null;
+};
+
+// Two score versions are "the same" when they point at the same stored file.
+// null means the score is absent on that side.
+const sameVersion = (a, b) => {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return a.storage_bucket === b.storage_bucket && a.storage_path === b.storage_path;
+};
+
+// Build the per-score merge plan between two heads using their merge base.
+// A score conflicts when BOTH sides changed it relative to the base AND the
+// two changes differ. Scores changed on only one side auto-resolve.
+const buildMergePlan = async (fromHeadId, intoHeadId) => {
+  const baseId = await findMergeBaseId(fromHeadId, intoHeadId);
+  const [baseVersions, ourVersions, theirVersions] = await Promise.all([
+    baseId ? loadScoreVersions(baseId) : Promise.resolve([]),
+    intoHeadId ? loadScoreVersions(intoHeadId) : Promise.resolve([]),
+    fromHeadId ? loadScoreVersions(fromHeadId) : Promise.resolve([]),
+  ]);
+
+  const baseMap = buildVersionMap(baseVersions);
+  const ourMap = buildVersionMap(ourVersions);
+  const theirMap = buildVersionMap(theirVersions);
+
+  const scoreIds = new Set([
+    ...baseMap.keys(),
+    ...ourMap.keys(),
+    ...theirMap.keys(),
+  ]);
+
+  const conflicts = [];
+  for (const scoreId of scoreIds) {
+    const base = baseMap.get(scoreId) || null;
+    const ours = ourMap.get(scoreId) || null;
+    const theirs = theirMap.get(scoreId) || null;
+    const ourChanged = !sameVersion(ours, base);
+    const theirChanged = !sameVersion(theirs, base);
+    if (ourChanged && theirChanged && !sameVersion(ours, theirs)) {
+      conflicts.push({ scoreId, base, ours, theirs });
+    }
+  }
+
+  return { baseId, baseMap, ourMap, theirMap, scoreIds, conflicts };
+};
+
+// Decide the winning version for one score given the 3-way state and an
+// optional explicit resolution ("ours" | "theirs"). Unresolved conflicts fall
+// back to legacy "theirs wins" so a no-resolution merge stays backward-compatible.
+const pickMergedVersion = ({ base, ours, theirs, isConflict, resolution }) => {
+  if (isConflict) {
+    if (resolution === "ours") return ours;
+    if (resolution === "theirs") return theirs;
+    return theirs || ours; // legacy default: theirs wins
+  }
+  const ourChanged = !sameVersion(ours, base);
+  const theirChanged = !sameVersion(theirs, base);
+  if (theirChanged && !ourChanged) return theirs;
+  if (ourChanged && !theirChanged) return ours;
+  return ours || theirs; // both unchanged, or both changed identically
+};
+
+const normalizeResolutions = (resolutions) => {
+  const map = new Map();
+  if (Array.isArray(resolutions)) {
+    for (const r of resolutions) {
+      if (r && r.scoreId && (r.resolution === "ours" || r.resolution === "theirs")) {
+        map.set(r.scoreId, r.resolution);
+      }
+    }
+  }
+  return map;
+};
+
+// Read-only merge preview: which scores conflict if `fromBranch` is merged into
+// `intoBranch`. Same role gate as the merge itself (concertmaster / admin).
+const previewMerge = async ({ fromBranchId, intoBranchId }, projectId, membership) => {
+  ensureSupabaseReady();
+  assertConcertmaster(membership, "preview merge");
+
+  if (!fromBranchId || !intoBranchId) {
+    throw new AppError("fromBranchId and intoBranchId are required", 400);
+  }
+  if (fromBranchId === intoBranchId) {
+    throw new AppError("fromBranchId and intoBranchId must differ", 400);
+  }
+
+  const [fromBranch, intoBranch] = await Promise.all([
+    getBranchById(projectId, fromBranchId),
+    getBranchById(projectId, intoBranchId),
+  ]);
+
+  if (!fromBranch.head_commit_id) {
+    throw new AppError("Source branch has no commits to merge", 400);
+  }
+
+  const plan = await buildMergePlan(
+    fromBranch.head_commit_id,
+    intoBranch.head_commit_id || null,
+  );
+
+  return {
+    from_branch: fromBranch,
+    into_branch: intoBranch,
+    base_commit_id: plan.baseId,
+    has_conflicts: plan.conflicts.length > 0,
+    conflicts: plan.conflicts.map((c) => ({
+      score_id: c.scoreId,
+      base: c.base,
+      ours: c.ours,
+      theirs: c.theirs,
+    })),
+  };
+};
+
+// ---------------------------------------------------------------------------
 // Merge
 // ---------------------------------------------------------------------------
 
 const mergeBranches = async (
-  { fromBranchId, intoBranchId, message },
+  { fromBranchId, intoBranchId, message, resolutions },
   projectId,
   requestUser,
   membership,
@@ -582,6 +751,25 @@ const mergeBranches = async (
     ? await loadCommitInProject(projectId, intoBranch.head_commit_id)
     : null;
 
+  // 3-way plan so we can auto-merge non-conflicting scores and honour explicit
+  // resolutions for the conflicting ones.
+  const plan = await buildMergePlan(fromHead.id, intoHead ? intoHead.id : null);
+  const conflictIds = new Set(plan.conflicts.map((c) => c.scoreId));
+  const resolutionMap = normalizeResolutions(resolutions);
+
+  // When the caller supplies resolutions, treat the merge as conflict-aware:
+  // every conflict must be resolved or we refuse (the 409 carries the conflict
+  // list so a client can recover). With no resolutions we keep the legacy
+  // "theirs wins" behaviour for backward compatibility.
+  if (resolutionMap.size > 0) {
+    const unresolved = plan.conflicts.filter((c) => !resolutionMap.has(c.scoreId));
+    if (unresolved.length > 0) {
+      throw new AppError("All merge conflicts must be resolved before merging", 409, {
+        conflicts: plan.conflicts.map((c) => ({ score_id: c.scoreId })),
+      });
+    }
+  }
+
   const mergeMessage =
     String(message || "").trim() ||
     `Merge branch '${fromBranch.name}' into '${intoBranch.name}'`;
@@ -603,17 +791,19 @@ const mergeBranches = async (
     throw new AppError("Failed to create merge commit", 500, insertError);
   }
 
-  // Resolve score_versions: start with into-head, then overlay from-head ("theirs wins").
-  // MVP strategy: from-branch versions win on conflict. Conflict detection is a separate
-  // concern surfaced by GET /commits/compare; this endpoint takes one side automatically.
+  // Resolve score_versions via the 3-way plan: non-conflicting scores take the
+  // side that changed; conflicting scores follow the explicit resolution (or
+  // legacy "theirs wins" when none was given).
   const mergedById = new Map();
-  if (intoHead) {
-    for (const v of await loadScoreVersions(intoHead.id)) {
-      mergedById.set(v.score_id, v);
-    }
-  }
-  for (const v of await loadScoreVersions(fromHead.id)) {
-    mergedById.set(v.score_id, v);
+  for (const scoreId of plan.scoreIds) {
+    const chosen = pickMergedVersion({
+      base: plan.baseMap.get(scoreId) || null,
+      ours: plan.ourMap.get(scoreId) || null,
+      theirs: plan.theirMap.get(scoreId) || null,
+      isConflict: conflictIds.has(scoreId),
+      resolution: resolutionMap.get(scoreId),
+    });
+    if (chosen) mergedById.set(scoreId, chosen);
   }
 
   const versionRows = Array.from(mergedById.values()).map((v) => ({
@@ -666,6 +856,7 @@ module.exports = {
   createCommit,
   // compare / merge
   compareCommits,
+  previewMerge,
   mergeBranches,
   // pure helpers exported for unit-tests (no Supabase dependency)
   _helpers: {
@@ -676,5 +867,8 @@ module.exports = {
     normalizeSnapshot,
     buildVersionMap,
     filterVisibleVersions,
+    sameVersion,
+    pickMergedVersion,
+    normalizeResolutions,
   },
 };

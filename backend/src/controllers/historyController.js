@@ -117,6 +117,19 @@ const compareCommits = async (req, res, next) => {
   }
 };
 
+const previewMerge = async (req, res, next) => {
+  try {
+    const preview = await historyService.previewMerge(
+      { fromBranchId: req.query.from, intoBranchId: req.query.into },
+      req.params.projectId,
+      req.projectMembership,
+    );
+    return sendSuccess(res, preview, "Merge preview computed successfully");
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const mergeBranches = async (req, res, next) => {
   try {
     const result = await historyService.mergeBranches(
@@ -141,5 +154,6 @@ module.exports = {
   getCommit,
   createCommit,
   compareCommits,
+  previewMerge,
   mergeBranches,
 };

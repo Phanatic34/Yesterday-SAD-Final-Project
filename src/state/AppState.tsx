@@ -13,7 +13,7 @@ import * as piecesApi from '../api/pieces'
 import * as projectsApi from '../api/projects'
 import * as scoresApi from '../api/scores'
 import * as sectionsApi from '../api/sections'
-import type { ApiBranch, ApiScore, ApiUser } from '../api/types'
+import type { ApiBranch, ApiMergePreview, ApiScore, ApiUser, MergeConflictResolution } from '../api/types'
 import type {
   Commit,
   MemberInviteDraft,
@@ -86,7 +86,17 @@ type AppState = {
   createBranch: (projectId: string, name: string) => Promise<void>
   switchBranch: (projectId: string, branchId: string) => Promise<void>
   deleteBranch: (projectId: string, branchId: string) => Promise<void>
-  mergeBranch: (projectId: string, fromBranchId: string, intoBranchId: string) => Promise<void>
+  previewMerge: (
+    projectId: string,
+    fromBranchId: string,
+    intoBranchId: string,
+  ) => Promise<ApiMergePreview>
+  mergeBranch: (
+    projectId: string,
+    fromBranchId: string,
+    intoBranchId: string,
+    resolutions?: Array<{ scoreId: string; resolution: MergeConflictResolution }>,
+  ) => Promise<void>
   createCommit: (projectId: string, message: string) => Promise<void>
 }
 
@@ -618,12 +628,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         }
       },
 
-      mergeBranch: async (projectId, fromBranchId, intoBranchId) => {
+      previewMerge: (projectId, fromBranchId, intoBranchId) =>
+        historyApi.previewMerge(projectId, fromBranchId, intoBranchId),
+
+      mergeBranch: async (projectId, fromBranchId, intoBranchId, resolutions) => {
         await historyApi.mergeBranches(projectId, {
           fromBranchId,
           intoBranchId,
+          resolutions,
         })
-        await loadProjectDetail(projectId)
+        await loadProjectDetail(projectId, { force: true })
       },
 
       createCommit: async (projectId, message) => {

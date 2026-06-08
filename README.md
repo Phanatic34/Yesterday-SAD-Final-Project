@@ -416,7 +416,8 @@ GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 | `POST` | `/api/projects/:projectId/branches/:branchId/commits` | 新增 commit（concertmaster / principal） |
 | `GET` | `/api/projects/:projectId/commits/:commitId` | 取得 commit 詳情與 score_versions |
 | `GET` | `/api/projects/:projectId/commits/compare?from=&to=` | 比較兩個 commits |
-| `POST` | `/api/projects/:projectId/merges` | 合併分支（**僅 concertmaster**） |
+| `GET` | `/api/projects/:projectId/merges/preview?from=&into=` | 合併前的衝突預覽（3-way；**僅 concertmaster**） |
+| `POST` | `/api/projects/:projectId/merges` | 合併分支（可帶 `resolutions` 解衝突；**僅 concertmaster**） |
 
 回應一律包含 `success` / `message` / `data` / `error` 四個欄位。需要登入的 API 必須帶：
 

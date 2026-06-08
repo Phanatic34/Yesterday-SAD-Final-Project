@@ -86,6 +86,26 @@ test("POST /api/projects: 201 and creator inserted as concertmaster", async () =
   assert.equal(members[0].section_id, SECTION_FIRST_VIOLIN);
 });
 
+test("POST /api/projects: auto-creates a default 'main' branch", async () => {
+  const { token } = seedUserWithToken(fake);
+  const created = await harness.request("POST", "/api/projects", {
+    token,
+    body: { name: "Project With Main", sectionId: SECTION_FIRST_VIOLIN },
+  });
+  const projectId = created.body.data.id;
+
+  const { status, body } = await harness.request(
+    "GET",
+    `/api/projects/${projectId}/branches`,
+    { token },
+  );
+  assert.equal(status, 200);
+  assert.equal(body.data.length, 1);
+  assert.equal(body.data[0].name, "main");
+  assert.equal(body.data[0].is_default, true);
+  assert.equal(body.data[0].head_commit_id, null);
+});
+
 // ---------------------------------------------------------------------------
 // List + read
 // ---------------------------------------------------------------------------

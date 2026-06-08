@@ -528,6 +528,147 @@ test("mergeBranches: same source and target rejected", async () => {
 });
 
 // ---------------------------------------------------------------------------
+// previewMerge + conflict-aware mergeBranches (3-way against the merge base)
+// ---------------------------------------------------------------------------
+
+// main and feature both branch off a shared base commit, then each edits the
+// SAME score to a different file → a genuine 3-way conflict on SCORE_A1.
+const conflictFixture = () => {
+  const fixture = baseFixture();
+  fixture.branches.push(
+    { id: "br-main",    project_id: PROJECT, name: "main",    head_commit_id: "cmt-main",    is_default: true,  created_by: USER_CM },
+    { id: "br-feature", project_id: PROJECT, name: "feature", head_commit_id: "cmt-feature", is_default: false, created_by: USER_CM },
+  );
+  fixture.commits.push(
+    { id: "cmt-base",    project_id: PROJECT, branch_id: "br-main",    parent_commit_id: null,        merge_parent_commit_id: null, message: "base",    author_user_id: USER_CM },
+    { id: "cmt-main",    project_id: PROJECT, branch_id: "br-main",    parent_commit_id: "cmt-base",  merge_parent_commit_id: null, message: "main edit", author_user_id: USER_CM },
+    { id: "cmt-feature", project_id: PROJECT, branch_id: "br-feature", parent_commit_id: "cmt-base",  merge_parent_commit_id: null, message: "feat edit", author_user_id: USER_CM },
+  );
+  fixture.score_versions.push(
+    { id: "sv-base-a1", commit_id: "cmt-base",    score_id: SCORE_A1, storage_bucket: "scores", storage_path: "base-a1", file_type: "musicxml" },
+    { id: "sv-main-a1", commit_id: "cmt-main",    score_id: SCORE_A1, storage_bucket: "scores", storage_path: "main-a1", file_type: "musicxml" },
+    { id: "sv-feat-a1", commit_id: "cmt-feature", score_id: SCORE_A1, storage_bucket: "scores", storage_path: "feat-a1", file_type: "musicxml" },
+  );
+  return fixture;
+};
+
+test("previewMerge: reports a 3-way conflict when both sides edited the same score", async () => {
+  fake.reset(conflictFixture());
+  const preview = await historyService.previewMerge(
+    { fromBranchId: "br-feature", intoBranchId: "br-main" },
+    PROJECT,
+    membershipCM,
+  );
+  assert.equal(preview.has_conflicts, true);
+  assert.equal(preview.base_commit_id, "cmt-base");
+  assert.equal(preview.conflicts.length, 1);
+  assert.equal(preview.conflicts[0].score_id, SCORE_A1);
+  assert.equal(preview.conflicts[0].ours.storage_path, "main-a1");
+  assert.equal(preview.conflicts[0].theirs.storage_path, "feat-a1");
+});
+
+test("previewMerge: no conflict when only one side changed the score", async () => {
+  const fixture = conflictFixture();
+  // Make feature leave SCORE_A1 at the base version (only main changed it).
+  fixture.score_versions = fixture.score_versions.filter((v) => v.id !== "sv-feat-a1");
+  fixture.score_versions.push({
+    id: "sv-feat-a1", commit_id: "cmt-feature", score_id: SCORE_A1,
+    storage_bucket: "scores", storage_path: "base-a1", file_type: "musicxml",
+  });
+  fake.reset(fixture);
+
+  const preview = await historyService.previewMerge(
+    { fromBranchId: "br-feature", intoBranchId: "br-main" },
+    PROJECT,
+    membershipCM,
+  );
+  assert.equal(preview.has_conflicts, false);
+  assert.equal(preview.conflicts.length, 0);
+});
+
+test("previewMerge: forbidden for non-concertmaster", async () => {
+  fake.reset(conflictFixture());
+  await assert.rejects(
+    () =>
+      historyService.previewMerge(
+        { fromBranchId: "br-feature", intoBranchId: "br-main" },
+        PROJECT,
+        membershipPrincipalA,
+      ),
+    (err) => {
+      assert.equal(err.statusCode, 403);
+      return true;
+    },
+  );
+});
+
+test("mergeBranches: resolution 'ours' keeps the target version on a conflict", async () => {
+  fake.reset(conflictFixture());
+  const merge = await historyService.mergeBranches(
+    {
+      fromBranchId: "br-feature",
+      intoBranchId: "br-main",
+      resolutions: [{ scoreId: SCORE_A1, resolution: "ours" }],
+    },
+    PROJECT,
+    { id: USER_CM },
+    membershipCM,
+  );
+  const a1 = merge.score_versions.find((v) => v.score_id === SCORE_A1);
+  assert.equal(a1.storage_path, "main-a1");
+});
+
+test("mergeBranches: resolution 'theirs' takes the source version on a conflict", async () => {
+  fake.reset(conflictFixture());
+  const merge = await historyService.mergeBranches(
+    {
+      fromBranchId: "br-feature",
+      intoBranchId: "br-main",
+      resolutions: [{ scoreId: SCORE_A1, resolution: "theirs" }],
+    },
+    PROJECT,
+    { id: USER_CM },
+    membershipCM,
+  );
+  const a1 = merge.score_versions.find((v) => v.score_id === SCORE_A1);
+  assert.equal(a1.storage_path, "feat-a1");
+});
+
+test("mergeBranches: 409 when resolutions are supplied but a conflict is left unresolved", async () => {
+  fake.reset(conflictFixture());
+  await assert.rejects(
+    () =>
+      historyService.mergeBranches(
+        {
+          fromBranchId: "br-feature",
+          intoBranchId: "br-main",
+          // resolves some other score, but not the actual conflict A1
+          resolutions: [{ scoreId: SCORE_B1, resolution: "ours" }],
+        },
+        PROJECT,
+        { id: USER_CM },
+        membershipCM,
+      ),
+    (err) => {
+      assert.equal(err.statusCode, 409);
+      return true;
+    },
+  );
+});
+
+test("mergeBranches: no resolutions falls back to legacy theirs-wins (backward compatible)", async () => {
+  fake.reset(conflictFixture());
+  const merge = await historyService.mergeBranches(
+    { fromBranchId: "br-feature", intoBranchId: "br-main" },
+    PROJECT,
+    { id: USER_CM },
+    membershipCM,
+  );
+  const a1 = merge.score_versions.find((v) => v.score_id === SCORE_A1);
+  assert.equal(a1.storage_path, "feat-a1");
+});
+
+// ---------------------------------------------------------------------------
 // updateBranch (PATCH = "版本切換")
 // ---------------------------------------------------------------------------
 

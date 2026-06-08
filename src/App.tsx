@@ -9,6 +9,7 @@ import { AdminDashboardPage } from './ui/pages/AdminDashboardPage'
 import { HomePage } from './ui/pages/HomePage'
 import { LandingPage } from './ui/pages/LandingPage'
 import { LoginPage } from './ui/pages/LoginPage'
+import { MergeConflictPage } from './ui/pages/MergeConflictPage'
 import { ProjectDetailPage } from './ui/pages/ProjectDetailPage'
 import { ProjectFormPage } from './ui/pages/ProjectFormPage'
 import { ProjectsPage } from './ui/pages/ProjectsPage'
@@ -36,6 +37,7 @@ export default function App() {
                 <Route path="projects" element={<ProjectsPage />} />
                 <Route path="projects/new" element={<ProjectFormPage mode="create" />} />
                 <Route path="projects/:projectId/edit" element={<ProjectFormPage mode="edit" />} />
+                <Route path="projects/:projectId/merge" element={<MergeConflictPage />} />
                 <Route path="projects/:projectId" element={<ProjectDetailPage />} />
                 <Route
                   path="projects/:projectId/scores/:scoreId/editor"

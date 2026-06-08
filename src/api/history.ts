@@ -1,5 +1,12 @@
 import { apiRequest } from './client'
-import type { ApiBranch, ApiCommit, ApiCommitDetail, ApiCommitDiff } from './types'
+import type {
+  ApiBranch,
+  ApiCommit,
+  ApiCommitDetail,
+  ApiCommitDiff,
+  ApiMergePreview,
+  MergeConflictResolution,
+} from './types'
 
 export function listBranches(projectId: string) {
   return apiRequest<ApiBranch[]>(`/projects/${projectId}/branches`)
@@ -16,9 +23,20 @@ export function listBranchCommits(projectId: string, branchId: string) {
   return apiRequest<ApiCommit[]>(`/projects/${projectId}/branches/${branchId}/commits`)
 }
 
+export function previewMerge(projectId: string, fromBranchId: string, intoBranchId: string) {
+  return apiRequest<ApiMergePreview>(
+    `/projects/${projectId}/merges/preview?from=${fromBranchId}&into=${intoBranchId}`,
+  )
+}
+
 export function mergeBranches(
   projectId: string,
-  input: { fromBranchId: string; intoBranchId: string; message?: string },
+  input: {
+    fromBranchId: string
+    intoBranchId: string
+    message?: string
+    resolutions?: Array<{ scoreId: string; resolution: MergeConflictResolution }>
+  },
 ) {
   return apiRequest<ApiCommit>(`/projects/${projectId}/merges`, {
     method: 'POST',
