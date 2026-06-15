@@ -24,6 +24,7 @@ Yesterday 是一套為樂團（特別是弦樂團）設計的線上總譜協作�
 - [七、Test 設計](#七、Test-設計)
 - [八、資料庫簡介與 EER Diagram](#八、資料庫簡介與-EER-Diagram)
 - [九、Open API Documentation](#九、Open-API-Documentation)
+- [十、Business Process Modeling Notation (BPMN)](#十、Business-Process-Modeling-Notation-(BPMN))
 
 ---
 
@@ -44,9 +45,13 @@ Yesterday — 同步總譜管理與註記系統
 
 ### 4. 主要系統功能
 
-簡易操作流程如下
+簡易操作流程圖如下：
 
 ![簡易操作流程](./Graph2.png)
+
+我們最初構想時繪製的系統 UI Flow 如下（本圖不包括經訪談後調整的更動）：
+
+![UI Flow Chart](./UI%20Flow.png)
 
 #### 樂譜編輯
 * **樂譜匯入與轉檔系統**：各聲部個別上傳樂譜檔案，支援 PDF、XML、MusicXML、MXL 等格式匯入，系統會統一轉檔為可編輯的格式。
@@ -70,6 +75,10 @@ Yesterday — 同步總譜管理與註記系統
 * **外觀設定**：支援明亮與深色顯示模式。
 * **帳號管理**：提供個人資料與工作區管理入口。
 * **支援多種裝置**：系統設計能在手機與電腦瀏覽器中開啟，Milestone 3 訪談後基於受訪者使用習慣增加支援在平板上開啟。
+
+最初構想時設計之系統 Functional Map 如下（本圖為最初版本，未包括經訪談後調整的改動）：
+
+![Functional Map](./Funtional%20Map.png)
 
 後端 API 契約請參考 [`backend/README-backend.md`](./backend/README-backend.md)；雲端部署（Vercel 前端 + Railway 後端／OMR）請參考 [`DEPLOYMENT.md`](./DEPLOYMENT.md)。
 
@@ -576,3 +585,17 @@ Schema 中定義了多個 Index，讓系統在查詢專案、曲目、樂譜與�
 | 413 | 上傳內容超過大小限制 |
 | 502 | 外部服務（OMR）無法連線 |
 | 503 | 資料表或 migration 尚未套用 |
+
+## 十、Business Process Modeling Notation (BPMN)
+
+我們專案的主要 BPMN 流程如下：
+
+* 登入 → 使用者透過帳號或 Google OAuth 登入系統。
+* 建立專案 → 群主建立專案並產生邀請碼。
+* 加入專案 → 成員貼上邀請碼 → 系統自動分配角色與聲部。
+* 上傳樂譜 → 上傳 MusicXML 或 PDF → OMR 轉檔 → 儲存至 Supabase。
+* 註記編輯 → 首席編輯 shared 註記 → 系統同步跨聲部相似段落。
+* 版本管理 → 建立分支、比較版本、合併。
+* 輸出總譜 → 系統合成多部總譜 → 匯出 MusicXML / PDF。
+
+![BPMN Diagram](./BPMN.png)
