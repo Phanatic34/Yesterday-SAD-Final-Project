@@ -904,7 +904,45 @@ Response `data`：
 分類規則：以 `(storage_bucket, storage_path)` 是否相等判斷 `modified` 與
 `unchanged`。`principal` / `member` 只會看到自己聲部的 scoreId。
 
-### 10) `POST /projects/:projectId/merges`（合併分支）
+### 10) `GET /projects/:projectId/merges/preview`（合併預覽 / 衝突偵測）
+
+用途：在真正合併前，先用三方比對（3-way，相對於兩分支的共同祖先 merge base）
+檢查 `fromBranch` 合進 `intoBranch` 會不會有衝突。**唯讀、不寫資料庫。**前端可
+依此決定要直接合併還是先進衝突解決頁。
+
+權限：同 merge，僅 `concertmaster`、`platform_admin`。
+
+Query string：
+
+- `from`（必填）：來源分支 id（`fromBranchId`）。
+- `into`（必填）：目標分支 id（`intoBranchId`）。
+
+衝突定義：某份 score 在 `fromBranch.head` 與 `intoBranch.head` 都相對於 merge base
+被改成「不同的檔案」（以 `(storage_bucket, storage_path)` 判斷）時即為衝突。只有
+單邊變更的 score 會自動合併、不算衝突。
+
+Response `data`：
+
+```json
+{
+  "from_branch": { "id": "uuid", "name": "feature/bowing-fix", "...": "..." },
+  "into_branch": { "id": "uuid", "name": "main", "...": "..." },
+  "base_commit_id": "uuid | null",
+  "has_conflicts": true,
+  "conflicts": [
+    {
+      "score_id": "uuid",
+      "base":   { "storage_path": "...", "...": "..." },
+      "ours":   { "storage_path": "...（intoBranch 版本）", "...": "..." },
+      "theirs": { "storage_path": "...（fromBranch 版本）", "...": "..." }
+    }
+  ]
+}
+```
+
+可能錯誤：`400`（缺 `from`/`into`、兩者相同、來源分支沒有 commit）、`403`（非群主）。
+
+### 11) `POST /projects/:projectId/merges`（合併分支）
 
 用途：對應「分支合併」。把 `fromBranchId` 合進 `intoBranchId`，在後者上產生
 一個 merge commit。
@@ -918,7 +956,8 @@ Request body：
 {
   "fromBranchId": "uuid",
   "intoBranchId": "uuid",
-  "message": "Merge feature/bowing-fix into main"
+  "message": "Merge feature/bowing-fix into main",
+  "resolutions": [{ "scoreId": "uuid", "resolution": "ours" }]
 }
 ```
 
@@ -931,14 +970,22 @@ Request body：
 
 - `message`：merge commit 訊息；未提供時自動產生
   `"Merge branch '<from.name>' into '<into.name>'"`。
+- `resolutions`：衝突解決清單，每筆 `{ scoreId, resolution }`，`resolution` 為
+  `"ours"`（保留 `intoBranch` 版本）或 `"theirs"`（採用 `fromBranch` 版本）。
 
 行為：
 
 - 新 merge commit 寫到 `intoBranchId`，`parent_commit_id` = `intoBranch.head`、
   `merge_parent_commit_id` = `fromBranch.head`。
-- score_versions 合併策略：以 `intoBranch.head` 為底，被 `fromBranch.head` 的
-  版本覆蓋（即同 `scoreId` 時 `fromBranch` 勝出）。MVP 階段不在 merge API 內
-  做 conflict detection；如需偵測請在合併前自行呼叫 `GET /commits/compare`。
+- score_versions 採三方合併（相對 merge base）：
+  - 只有單邊變更的 score → 自動採用有變更的那一邊。
+  - 兩邊都改成不同檔案的 score → 視 `resolutions` 而定。
+- `resolutions` 行為：
+  - **有帶 `resolutions`**：每個衝突都必須被解決，否則回 `409`（回傳的 `error`
+    內含尚未解決的 `conflicts`）。
+  - **沒帶 `resolutions`**：維持舊行為（向後相容）——衝突一律由 `fromBranch`
+    版本勝出（theirs-wins）。前端應先呼叫 `GET /merges/preview`，有衝突時導向
+    衝突解決頁，再帶 `resolutions` 來合併。
 - 成功後 `intoBranch.head_commit_id` 更新為這個 merge commit。
 
 Response 同 `POST /commits` 的回傳格式。

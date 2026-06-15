@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Project } from '../../../types'
+import { ApiError } from '../../../api/client'
 import { useAppState, useRequiredUser } from '../../../state/AppState'
 import { Badge } from '../../primitives/Badge'
 import { Button } from '../../primitives/Button'
@@ -9,9 +11,11 @@ import { useTranslation } from '../../../i18n'
 import { GitBranch, GitMerge, Repeat2, Trash2 } from 'lucide-react'
 
 export function BranchesPanel({ project }: { project: Project }) {
-  const { createBranch, switchBranch, deleteBranch, mergeBranch, addToast } = useAppState()
+  const { createBranch, switchBranch, deleteBranch, previewMerge, mergeBranch, addToast } =
+    useAppState()
   const currentUser = useRequiredUser()
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
   const [mergeOpen, setMergeOpen] = useState(false)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
@@ -28,6 +32,38 @@ export function BranchesPanel({ project }: { project: Project }) {
     const me = project.members.find((m) => m.userId === currentUser.id)
     return me?.role === 'concertmaster'
   }, [currentUser, project.members])
+
+  const sameBranchSelected = mergeFrom === mergeInto
+
+  // Check for conflicts before committing to a merge. When the merge base shows
+  // both branches changed the same score differently, route to the dedicated
+  // resolution page instead of silently auto-resolving.
+  async function handleMergeConfirm() {
+    if (sameBranchSelected) return
+    setLoading(true)
+    try {
+      const preview = await previewMerge(project.id, mergeFrom, mergeInto)
+      if (preview.has_conflicts) {
+        setMergeOpen(false)
+        addToast({
+          title: t('branches.conflictsDetected'),
+          message: t('branches.conflictsDetectedDesc'),
+        })
+        navigate(`/projects/${project.id}/merge?from=${mergeFrom}&into=${mergeInto}`)
+        return
+      }
+      await mergeBranch(project.id, mergeFrom, mergeInto)
+      setMergeOpen(false)
+      addToast({ title: t('branches.mergeComplete') })
+    } catch (err) {
+      addToast({
+        title: t('branches.mergeCheckFailed'),
+        message: err instanceof ApiError ? err.message : t('projects.tryAgainLater'),
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -198,19 +234,10 @@ export function BranchesPanel({ project }: { project: Project }) {
               {t('common.cancel')}
             </Button>
             <Button
-              disabled={!canMerge || loading}
-              onClick={async () => {
-                setLoading(true)
-                try {
-                  await mergeBranch(project.id, mergeFrom, mergeInto)
-                  setMergeOpen(false)
-                  addToast({ title: t('branches.mergeComplete') })
-                } finally {
-                  setLoading(false)
-                }
-              }}
+              disabled={!canMerge || loading || sameBranchSelected}
+              onClick={handleMergeConfirm}
             >
-              {t('branches.confirmMerge')}
+              {loading ? t('branches.checkingConflicts') : t('branches.confirmMerge')}
             </Button>
           </div>
         }
@@ -245,6 +272,13 @@ export function BranchesPanel({ project }: { project: Project }) {
             </select>
           </div>
         </div>
+        {sameBranchSelected ? (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {t('branches.sameBranchHint')}
+          </div>
+        ) : (
+          <div className="mt-3 text-xs text-slate-500">{t('branches.mergeConflictHint')}</div>
+        )}
       </Modal>
     </div>
   )

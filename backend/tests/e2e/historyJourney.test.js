@@ -49,16 +49,18 @@ test("E2E: branches → commits → list → compare → merge", async () => {
   );
   const scoreId = uploadRes.body.data.id;
 
-  // 2. Create the default branch ("main"). Initial branch in a project
-  // becomes the default automatically.
-  const mainBranchRes = await harness.request(
-    "POST",
+  // 2. Creating the project auto-creates the default "main" branch, so it is
+  // already present — fetch it rather than creating it.
+  const branchesRes = await harness.request(
+    "GET",
     `/api/projects/${projectId}/branches`,
-    { token, body: { name: "main" } },
+    { token },
   );
-  assert.equal(mainBranchRes.status, 201);
-  assert.equal(mainBranchRes.body.data.is_default, true);
-  const mainBranchId = mainBranchRes.body.data.id;
+  assert.equal(branchesRes.status, 200);
+  const mainBranch = branchesRes.body.data.find((b) => b.is_default);
+  assert.ok(mainBranch, "expected an auto-created default branch");
+  assert.equal(mainBranch.name, "main");
+  const mainBranchId = mainBranch.id;
 
   // 3. Create a commit on main with one score snapshot.
   const commit1 = await harness.request(

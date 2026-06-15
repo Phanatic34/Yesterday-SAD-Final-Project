@@ -98,6 +98,20 @@ const createProject = async ({ name, description, sectionId }, userId) => {
     throw new AppError("Failed to create project creator membership", 500, memberInsertError);
   }
 
+  // Auto-create the default "main" branch (git-init semantics) so the version
+  // history features work immediately and "main" shows up in the UI from the
+  // moment a project exists — not only after the first manual branch/commit.
+  // Best-effort: an unmigrated DB without the history tables must not block
+  // project creation (listBranches has the same tolerance), so we swallow the
+  // error rather than rolling back the project.
+  await supabase.from("branches").insert({
+    project_id: createdProject.id,
+    name: "main",
+    head_commit_id: null,
+    is_default: true,
+    created_by: userId,
+  });
+
   return createdProject;
 };
 

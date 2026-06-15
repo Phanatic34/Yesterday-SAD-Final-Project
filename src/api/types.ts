@@ -138,3 +138,20 @@ export type ApiCommitDiff = {
   modified: { score_id: string; from: ApiScoreVersion; to: ApiScoreVersion }[]
   unchanged: { score_id: string; from: ApiScoreVersion; to: ApiScoreVersion }[]
 }
+
+export type MergeConflictResolution = 'ours' | 'theirs'
+
+export type ApiMergeConflict = {
+  score_id: string
+  base: ApiScoreVersion | null
+  ours: ApiScoreVersion | null
+  theirs: ApiScoreVersion | null
+}
+
+export type ApiMergePreview = {
+  from_branch: ApiBranch
+  into_branch: ApiBranch
+  base_commit_id: string | null
+  has_conflicts: boolean
+  conflicts: ApiMergeConflict[]
+}
